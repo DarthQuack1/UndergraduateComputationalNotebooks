@@ -68,6 +68,8 @@ c = 3.
 
 println(collect(w̄))
 
+w̄ = collect(w̄)
+
 V1 = zeros(S) # initialize value function guess
 for j in 1:S
     V1[j] = max(w̄[j],c)
@@ -79,3 +81,40 @@ Q1 = dot(p,V1) # expected value of a wage offer
 
 #note different than
 dot(p,w̄)
+
+using LinearAlgebra
+T = 4                                # number of periods the worker lives
+S = length(w̄)                        # number of possible wages
+V = zeros(T, S)                       # V[t,s] = value with t periods left, offer s
+Q = zeros(T)                          # Q[t] = expected value of random offer
+
+V[1, :] = max.(c, w̄)                 # base case: last period, just pick max
+Q[1] = dot(p, V[1, :])               # expected value in last period
+
+for t in 2:T                          # build up from t=2 to t=T
+    Vaccept = w̄ + β*V[t-1, :]        # wage today + discounted continuation
+    Vreject = c + β*Q[t-1]            # benefits today + discounted random offer
+    V[t, :] = max.(Vaccept, Vreject)  # optimal choice for each wage
+    Q[t] = dot(p, V[t, :])           # update expected value
+end
+
+function iterateBellman(V, Q, β, p, w̄, c)     # V, Q from next period
+    V_accept = w̄ .+ β .* V                       # w̄[s] + β*V[s] for each wage s
+    V_reject = c  + β  * Q                        # c + β*Q (same for all wages)
+    V_new = max.(V_accept, V_reject)            # pick the better option
+    Q_new = dot(p, V_new)                       # expected value of random offer
+    C = V_accept .>= V_reject                   # 1 = accept, 0 = reject
+    return (V=V_new, Q=Q_new, C=C)               # named tuple of results
+end
+
+
+t=3
+iterateBellman(V[t-1,:],Q[t-1],β,p,w̄,c).V #This should give me V[t,:],Q[t]
+#compare to
+V[t,:]
+
+
+#Same as the for loop above
+for t in 2:T                          # build up from t=2 to t=T
+    V[t,:],Q[t],C = iterateBellman(V[t-1,:],Q[t-1],β,p,w̄,c)
+end
